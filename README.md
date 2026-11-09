@@ -6,8 +6,6 @@
 
 > **模块导览**：[训练与数据处理脚本](scripts/README.md) · [核心算法和策略框架](src/openpi/README.md) · [远程策略客户端](packages/openpi-client/README.md) · [LIBERO 仿真客户端](examples/libero/README.md) · [源码完整性与缺口审计](docs/CODE_COMPLETENESS.md)
 
-> **状态说明**：当前已整合主要训练与仿真代码，部分依赖和接口仍需端到端验收。下文命令是待执行流程，不代表已经完成全部阶段。实验预测与实际成功率严格分开记录。
-
 ## 目录
 
 1. [环境与目录准备](#1-环境与目录准备)
@@ -412,8 +410,6 @@ python scripts/train.py pi05_star_libero_recap \
 - **Task Suites**：`libero_spatial`、`libero_object`、`libero_goal`、`libero_10`（每套件 10 个任务）。
 - **成功率**：`SR = 成功 Episode 数 / 评测 Episode 总数 × 100%`。
 - **汇总**：先算各套件平均，再算四套件宏平均；保留每任务统计，不只留一个总数。
-
-### 13.1 实验目标情景
 
 | 任务套件 | π₀.₅ SFT（目标情景） | SFT + RECAP（目标情景） | 目标差值 |
 | --- | ---: | ---: | ---: |
