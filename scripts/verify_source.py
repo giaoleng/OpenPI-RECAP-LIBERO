@@ -22,7 +22,7 @@ MUST_EXIST = (
 def main():
     for relative in MUST_EXIST:
         assert (ROOT / relative).is_file(), f"缺少模块: {relative}"
-    all_sources = [*ROOT.glob("src/**/*.py"), *ROOT.glob("scripts/**/*.py"),
+    all_sources = [*ROOT.glob("src/**/*.py"), *ROOT.glob("scripts/**/*.py"), *ROOT.glob("tests/**/*.py"),
                    *ROOT.glob("examples/libero/**/*.py"), *ROOT.glob("packages/openpi-client/**/*.py")]
     for path in all_sources:
         ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
