@@ -1,4 +1,4 @@
-# OpenPI-RECAP-Sim
+# OpenPI-RECAP-LIBERO
 
 基于 **π₀.₅ VLA 与 RECAP 风格优势条件策略训练**的 LIBERO 仿真闭环学习项目，覆盖专家示范微调、策略自主 Rollout、数据融合、VLM Value Model 训练、N-step Advantage 标注和策略再训练。
 
@@ -30,8 +30,8 @@
 ### 1.1 获取项目
 
 ```bash
-git clone https://github.com/giaoleng/OpenPI-RECAP-Sim.git
-cd OpenPI-RECAP-Sim
+git clone https://github.com/giaoleng/OpenPI-RECAP-LIBERO.git
+cd OpenPI-RECAP-LIBERO
 git submodule update --init --recursive
 ```
 
@@ -40,7 +40,7 @@ git submodule update --init --recursive
 建议在**远程 GPU 容器**中使用下列目录，路径可依平台实际挂载位置调整：
 
 ```text
-/workspace/OpenPI-RECAP-Sim/           # Git 仓库
+/workspace/OpenPI-RECAP-LIBERO/           # Git 仓库
 /workspace/recap_data/
 ├── raw_libero_rlds/                  # 原始专家示范
 ├── lerobot_datasets/
@@ -60,7 +60,7 @@ git submodule update --init --recursive
 设置工作路径（**在远程容器中运行**）：
 
 ```bash
-export PROJECT_ROOT=/workspace/OpenPI-RECAP-Sim
+export PROJECT_ROOT=/workspace/OpenPI-RECAP-LIBERO
 export WORK_ROOT=/workspace/recap_data
 mkdir -p "$WORK_ROOT"/{raw_libero_rlds,lerobot_datasets,weights,checkpoints,outputs/eval,outputs/logs}
 cd "$PROJECT_ROOT"
