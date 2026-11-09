@@ -172,6 +172,7 @@ def build_value_data_config(
     return _config.DataConfig(
         # 从本地 LeRobot 数据集名称构造 repo_id。
         repo_id=f"local/{Path(local_data_dir).name}",
+        local_data_dir=local_data_dir,
         action_sequence_keys=(),
         prompt_from_task=True,
         data_transforms=_transforms.Group(
@@ -418,8 +419,20 @@ def load_checkpoint(checkpoint_path: Path, state: TrainState) -> TrainState:
         raise ValueError(f"Checkpoint 不存在: {checkpoint_path}")
     
     with ocp.PyTreeCheckpointer() as ckptr:
-        restored = ckptr.restore(str(checkpoint_path))
-    
+        metadata = ckptr.metadata(str(checkpoint_path))
+        if "opt_state" not in metadata:
+            raise ValueError("旧 Value checkpoint 缺少 opt_state，不能作为完整训练续训；仍可用于 Value 推理。")
+        target = {
+            "params": state.params.to_pure_dict(),
+            "step": state.step,
+            "opt_state": state.opt_state,
+        }
+        if state.ema_params is not None:
+            if "ema_params" not in metadata:
+                raise ValueError("当前启用 EMA，但 checkpoint 缺少 ema_params。")
+            target["ema_params"] = state.ema_params.to_pure_dict()
+        restored = ckptr.restore(str(checkpoint_path), args=ocp.args.PyTreeRestore(item=target))
+    restored_opt_state = restored["opt_state"]
     # 恢复参数
     state.params.replace_by_pure_dict(restored["params"])
     
@@ -433,7 +446,7 @@ def load_checkpoint(checkpoint_path: Path, state: TrainState) -> TrainState:
         step=restored_step,
         params=state.params,
         model_def=state.model_def,
-        opt_state=state.opt_state,
+        opt_state=restored_opt_state,
         ema_params=state.ema_params,
     )
     
@@ -445,6 +458,8 @@ def save_checkpoint(state: TrainState, checkpoint_dir: Path, step: int):
     """保存 checkpoint。"""
     import orbax.checkpoint as ocp
 
+    if step != int(state.step):
+        raise ValueError(f"Checkpoint step={step} 与实际训练状态 step={int(state.step)} 不一致")
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
     # 确保使用绝对路径
@@ -456,7 +471,8 @@ def save_checkpoint(state: TrainState, checkpoint_dir: Path, step: int):
     with ocp.PyTreeCheckpointer() as ckptr:
         save_dict = {
             "params": state.params.to_pure_dict(), 
-            "step": step
+            "step": int(state.step),
+            "opt_state": state.opt_state,
         }
         # π0优化：同时保存EMA参数
         if state.ema_params is not None:
@@ -465,6 +481,14 @@ def save_checkpoint(state: TrainState, checkpoint_dir: Path, step: int):
         ckptr.save(str(ckpt_path), save_dict)
 
     logging.info(console.ok(f"保存 checkpoint: {ckpt_path}"))
+
+
+def validate_training_args(args):
+    for name in ("batch_size", "num_train_steps", "log_interval", "save_interval"):
+        if getattr(args, name) <= 0:
+            raise ValueError(f"{name}必须为正数")
+    if args.val_data_dir and Path(args.data_dir).expanduser().resolve() == Path(args.val_data_dir).expanduser().resolve():
+        raise ValueError("Value训练集与验证集不能使用同一个根目录")
 
 
 def main():
@@ -503,6 +527,7 @@ def main():
         help="冻结策略: none=全量训练, siglip_only=只冻结SigLIP, all_backbones=冻结SigLIP和Gemma backbone",
     )
     args = parser.parse_args()
+    validate_training_args(args)
 
     init_logging()
     logging.info(f"\033[1;34;46mRunning on:\033[0m \033[1;33;40m{platform.node()}\033[0m")
@@ -798,7 +823,7 @@ def main():
 
     if not prefetch_batches:
         logging.error("\033[1;31m无法预取任何batch，检查数据集\033[0m")
-        return
+        raise ValueError("Value训练没有可用batch，请检查数据量和batch_size")
 
     logging.info(f"\033[1;32m成功预取 {len(prefetch_batches)} 个batch\033[0m")
 
@@ -886,8 +911,9 @@ def main():
             )
 
         infos.append(info)
+        completed_step = int(train_state.step)
 
-        if step % args.log_interval == 0 and step > 0:
+        if completed_step % args.log_interval == 0:
             stacked_infos = common_utils.stack_forest(infos)
             reduced_info = jax.device_get(jax.tree.map(jnp.mean, stacked_infos))
             
@@ -895,9 +921,9 @@ def main():
             current_lr = float(lr_schedule(step)) if lr_schedule is not None else None
             
             info_str = ", ".join(f"{k}={v:.4f}" for k, v in reduced_info.items())
-            pbar.write(f"Step {step}: {info_str}, lr={current_lr:.2e}" if isinstance(current_lr, (int, float)) else f"Step {step}: {info_str}")
+            pbar.write(f"Step {completed_step}: {info_str}, lr={current_lr:.2e}" if isinstance(current_lr, (int, float)) else f"Step {step}: {info_str}")
             if wandb_run is not None:
-                log_payload = {"step": int(step), "train/freeze_mode": args.freeze_mode}
+                log_payload = {"step": completed_step, "train/freeze_mode": args.freeze_mode}
                 for key, value in reduced_info.items():
                     log_payload[f"train/{key}"] = float(value)
                 if current_lr is not None:
@@ -905,16 +931,16 @@ def main():
                 wandb_run.log(log_payload)
             infos = []
 
-        if val_loader is not None and args.val_interval > 0 and step % args.val_interval == 0 and step > 0:
-            run_validation(step)
+        if val_loader is not None and args.val_interval > 0 and completed_step % args.val_interval == 0:
+            run_validation(completed_step)
 
-        if step % args.save_interval == 0 and step > 0:
+        if completed_step % args.save_interval == 0:
             # 计算当前损失
             current_loss = jax.device_get(info["loss"]).item()
-            logging.info(f"\033[1;44m保存检查点 - Step {step}, Loss: {current_loss:.4f}\033[0m")
-            save_checkpoint(train_state, checkpoint_dir, step)
+            logging.info(f"\033[1;44m保存检查点 - Step {completed_step}, Loss: {current_loss:.4f}\033[0m")
+            save_checkpoint(train_state, checkpoint_dir, int(train_state.step))
 
-    save_checkpoint(train_state, checkpoint_dir, args.num_train_steps)
+    save_checkpoint(train_state, checkpoint_dir, int(train_state.step))
     if wandb_run is not None:
         wandb_run.finish()
     logging.info("\033[1;32m训练完成!\033[0m")

@@ -684,6 +684,7 @@ def _build_inference_dataset(
     data_config = _config.DataConfig(
         # 从本地 LeRobot 数据集名称构造 repo_id。
         repo_id=f"local/{data_dir.name}",
+        local_data_dir=str(data_dir),
         action_sequence_keys=(),
         prompt_from_task=False,
         data_transforms=_transforms.Group(
@@ -801,7 +802,10 @@ def _compute_values_with_dataloader(
 def _extract_episode_id(df: pd.DataFrame, fallback: int) -> int:
     if "episode_index" not in df.columns or df.empty:
         return fallback
-    return _to_scalar_int(df["episode_index"].iloc[0])
+    episode_ids = {_to_scalar_int(value) for value in df["episode_index"]}
+    if len(episode_ids) != 1:
+        raise ValueError("单个parquet包含多个Episode，不能按单Episode计算优势；请先按Episode拆分")
+    return episode_ids.pop()
 
 
 def _resolve_values_for_episode(
@@ -849,6 +853,12 @@ def _read_parquet_columns(path: Path, columns: list[str]) -> pd.DataFrame:
 
 
 def _compute_advantages(values: np.ndarray, reward_labels: np.ndarray, lookahead: int) -> np.ndarray:
+    if lookahead < 1:
+        raise ValueError("lookahead must be >= 1")
+    if values.ndim != 1 or reward_labels.shape != values.shape:
+        raise ValueError("values and reward_labels must be aligned one-dimensional arrays")
+    if not np.all(np.isfinite(values)) or not np.all(np.isfinite(reward_labels)):
+        raise ValueError("values and rewards must be finite")
     T = len(values)
     advantages = np.zeros((T,), dtype=np.float32)
     for t in range(T):
@@ -913,13 +923,13 @@ def _build_pending_label_requests(
         reward_labels = _series_to_scalar_float_array(df[reward_col_name], name=reward_col_name)
         human_mask = _extract_human_mask(df, human_col)
 
+        episode_id = _extract_episode_id(df, fallback_episode_id)
         if np.all(human_mask):
             demo_rows += len(df)
             flat_offset += len(df)
             continue
 
         rollout_rows += len(df)
-        episode_id = _extract_episode_id(df, fallback_episode_id)
         step_indices = _resolve_step_indices(df)
         dataset_row_indices = _resolve_dataset_row_indices(df, flat_offset)
 
@@ -986,6 +996,8 @@ def main() -> None:
         help="If true and right wrist is missing, copy wrist image",
     )
     args = parser.parse_args()
+    if args.lookahead < 1:
+        parser.error("--lookahead must be >= 1")
     if not 0.0 < args.top_percent <= 100.0:
         parser.error("--top_percent must be in (0, 100]")
 
@@ -1098,27 +1110,11 @@ def main() -> None:
     progress.sync_pbar_color(pbar)
     for request in pbar:
         progress.sync_pbar_color(pbar)
-        advantages = np.zeros((len(request.pending_positions),), dtype=np.float32)
-
-        for i, row_pos in enumerate(request.pending_positions):
-            row_pos = int(row_pos)
-            reward_end = min(row_pos + args.lookahead, len(request.reward_labels))
-            reward_sum = float(np.sum(request.reward_labels[row_pos:reward_end]))
-            current_value = _lookup_inferred_value(
-                value_cache,
-                episode_id=request.episode_id,
-                step_index=int(request.step_indices[row_pos]),
-            )
-            if row_pos + args.lookahead < len(request.reward_labels):
-                future_pos = int(request.future_positions[i])
-                future_value = _lookup_inferred_value(
-                    value_cache,
-                    episode_id=request.episode_id,
-                    step_index=int(request.step_indices[future_pos]),
-                )
-            else:
-                future_value = 0.0
-            advantages[i] = reward_sum + future_value - current_value
+        values = np.asarray([
+            _lookup_inferred_value(value_cache, episode_id=request.episode_id, step_index=int(step))
+            for step in request.step_indices
+        ], dtype=np.float32)
+        advantages = _compute_advantages(values, request.reward_labels, args.lookahead)[request.pending_positions]
 
         advantage_cache[request.parquet_path] = advantages
 
