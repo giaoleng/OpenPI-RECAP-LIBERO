@@ -1,4 +1,4 @@
-# OpenPI-RECAP-Sim 项目约定
+# OpenPI-RECAP-LIBERO 项目约定
 
 ## 范围
 
