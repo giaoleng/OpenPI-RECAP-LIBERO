@@ -88,8 +88,8 @@ def create_rlds_dataloader(
     return data_loader, num_batches
 
 
-def main(config_name: str, max_frames: int | None = None):
-    config = _config.get_config(config_name)
+def compute_for_config(config: _config.TrainConfig, max_frames: int | None = None):
+    """接受显式配置，确保统计量与训练使用同一份本地数据和资产ID。"""
     data_config = config.data.create(config.assets_dirs, config.model)
 
     if data_config.rlds_data_dir is not None:
@@ -113,6 +113,10 @@ def main(config_name: str, max_frames: int | None = None):
     output_path = config.assets_dirs / data_config.repo_id
     print(f"Writing stats to: {output_path}")
     normalize.save(output_path, norm_stats)
+
+
+def main(config_name: str, max_frames: int | None = None):
+    compute_for_config(_config.get_config(config_name), max_frames)
 
 
 if __name__ == "__main__":
