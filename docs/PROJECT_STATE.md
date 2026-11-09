@@ -9,3 +9,7 @@
 **未完成验收**：依赖安装、GPU 权重加载、完整 LIBERO Episode、SFT、Value Model 与 RECAP 训练，暂无本项目自行测得的成功率。不得将原作者结果记为本仓库结果。
 
 后续按“静态检查 → 远程 GPU 推理 → Value/Advantage 端到端测试 → SFT/RECAP 对照”推进。
+
+## 2026-11-08 中文提交规范整理
+
+已核对当前GitHub main与本地审查基线一致，并记录主要路径最新提交。新增CONTRIBUTING.md、.gitmessage和docs/COMMIT_STYLE_AUDIT.md，采用type前缀与简洁中文技术说明；local commit.template指向.gitmessage。本轮另修正README中旧项目名称及克隆/工作路径，共五处。本轮只创建这些规范与文档修改的本地提交，未提交先前阶段的算法、配置或测试工作，未改旧历史、许可证或版权，未推送。未改动目录继续保留旧标题；若要求现有旧标题全部换名，需要另行审批历史整理。详细路径映射与影响见审查文档。
