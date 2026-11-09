@@ -67,6 +67,8 @@ class AssetsConfig:
 class DataConfig:
     # LeRobot 数据集标识；为空时使用虚拟数据。
     repo_id: str | None = None
+    # 本地 LeRobot 根目录；与逻辑 repo_id 分开，避免误触发远程数据读取。
+    local_data_dir: str | None = None
     # Directory within the assets directory containing the data assets.
     asset_id: str | None = None
     # 预计算的归一化统计；为空时不应用归一化。

@@ -160,25 +160,28 @@ def create_torch_dataset(
     data_config: _config.DataConfig, action_horizon: int, model_config: _model.BaseModelConfig
 ) -> Dataset:
     """根据训练配置创建数据集。"""
-    if data_config.local_data_dir is not None:
-        local_dir = data_config.local_data_dir
-        if not os.path.exists(local_dir):
-            raise ValueError(f"Local data directory does not exist: {local_dir}")
-        repo_id = local_dir
-    else:
-        repo_id = data_config.repo_id
-
+    repo_id = data_config.repo_id
     if repo_id is None:
         raise ValueError("Repo ID is not set. Cannot create dataset.")
     if repo_id == "fake":
         return FakeDataset(model_config, num_samples=1024)
 
-    dataset_meta = lerobot_dataset.LeRobotDatasetMetadata(repo_id)
+    dataset_kwargs = {}
+    if data_config.local_data_dir is not None:
+        from pathlib import Path
+
+        local_dir = Path(data_config.local_data_dir).expanduser().resolve()
+        if not (local_dir / "meta" / "info.json").is_file():
+            raise ValueError(f"Local LeRobot metadata does not exist: {local_dir / 'meta' / 'info.json'}")
+        dataset_kwargs["root"] = local_dir
+
+    dataset_meta = lerobot_dataset.LeRobotDatasetMetadata(repo_id, **dataset_kwargs)
     dataset = lerobot_dataset.LeRobotDataset(
         repo_id,
         delta_timestamps={
             key: [t / dataset_meta.fps for t in range(action_horizon)] for key in data_config.action_sequence_keys
         },
+        **dataset_kwargs,
     )
 
     if hasattr(dataset, "hf_dataset") and dataset.hf_dataset is not None:
