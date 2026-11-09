@@ -13,7 +13,7 @@ dependencies = [
     "flatbuffers>=24.3.25",
     "flax==0.10.2",
     "fsspec[gcs]>=2024.6.0",
-        "imageio>=2.36.1",
+    "imageio>=2.36.1",
     "jax[cuda12]==0.5.3",
     "jaxtyping==0.2.36",
     "lerobot",
@@ -42,7 +42,7 @@ dependencies = [
 
 
 [project.urls]
-Repository = "https://github.com/giaoleng/OpenPI-RECAP-Sim"
+Repository = "https://github.com/giaoleng/OpenPI-RECAP-LIBERO"
 
 [dependency-groups]
 dev = [
@@ -135,4 +135,7 @@ build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 markers = ["manual: should be run manually."]
-testpaths = ["src", "scripts", "packages"]
+testpaths = ["tests"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/openpi"]
