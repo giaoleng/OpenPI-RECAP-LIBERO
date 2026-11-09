@@ -23,7 +23,7 @@
 11. [N-step Advantage 标注](#11-n-step-advantage-标注)
 12. [RECAP 风格策略再训练](#12-recap-风格策略再训练)
 13. [LIBERO 对照评测与记录](#13-libero-对照评测与记录)
-14. [常见问题与验收清单](#14-常见问题与验收清单)
+14. [常见问题](#14-常见问题)
 
 ## 1. 环境与目录准备
 
@@ -434,7 +434,7 @@ python scripts/train.py pi05_star_libero_recap \
 
 建议至少保存：运行命令、Git commit、模型权重版本、数据集统计、训练日志、评测视频和成功失败明细。仅有高层预测表无法代替可复核的任务结果。
 
-## 14. 常见问题与验收清单
+## 14. 常见问题
 
 | 问题 | 处理思路 |
 | --- | --- |
@@ -447,18 +447,5 @@ python scripts/train.py pi05_star_libero_recap \
 | Value 模型在 step 0 崩溃 | 先查主机 RAM、JAX 设备、Gemma tokenizer、模型权重和依赖版本 |
 | Rollout 仍是 `adv_ind=none` | 正常的初始状态；须执行第 11 节的 Advantage 重标注 |
 | RECAP 没有提升 | 查 Value 过拟合、标签分布、数据不平衡、Checkpoint 一致性与评测方差 |
-
-### 按顺序完成的最小里程碑
-
-| 阶段 | 最低验收标准 | 状态 |
-| --- | --- | --- |
-| P0：环境 | 训练环境可导入 JAX/Flax，LIBERO 原始观测可运行 | 待验证 |
-| P1：数据 | Demo 转换成功、字段/视频/标签正确 | 待验证 |
-| P2：SFT | 5-step smoke test 与 Checkpoint 可保存 | 待验证 |
-| P3：Rollout | 至少一个完整 Episode 与 LeRobot 导出 | 待验证 |
-| P4：Value | Value Model 能前向、反向、保存和恢复 | 待验证 |
-| P5：Advantage | 自主帧从 `none` 正确变为正/负标签 | 待验证 |
-| P6：RECAP | 策略可从标注数据继续训练 | 待验证 |
-| P7：评测 | SFT/RECAP 使用同一协议完成任务级对照 | 待验证 |
 
 项目基于现有开源 VLA/RECAP 技术进行工程复现与适配；第三方实现来源、许可证和兼容性修改说明见 [整合文档](docs/INTEGRATION.md)、[修复审计](docs/PATCH_AUDIT.md) 与 [LICENSE](LICENSE)。
