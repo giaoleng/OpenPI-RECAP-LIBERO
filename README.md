@@ -1,4 +1,4 @@
-# OpenPI-RECAP-LIBERO
+# openpi-recap-sim
 
 基于 **π₀.₅ VLA 与 RECAP 风格优势条件策略训练**的 LIBERO 仿真闭环学习项目，覆盖专家示范微调、策略自主 Rollout、数据融合、VLM Value Model 训练、N-step Advantage 标注和策略再训练。
 
@@ -30,8 +30,8 @@
 ### 1.1 获取项目
 
 ```bash
-git clone https://github.com/giaoleng/OpenPI-RECAP-LIBERO.git
-cd OpenPI-RECAP-LIBERO
+git clone https://github.com/giaoleng/openpi-recap-sim.git
+cd openpi-recap-sim
 ```
 
 仓库中的 `src/openpi/` 是核心训练与策略代码，`scripts/` 提供训练和数据处理入口，`examples/libero/` 提供仿真评测客户端。数据、模型权重、Checkpoint 和视频不提交到 GitHub。
