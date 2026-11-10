@@ -46,6 +46,9 @@ def init_logging():
 
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
+    # 独立脚本运行时root logger可能没有handler；先创建，再统一格式。
+    if not logger.handlers:
+        logger.addHandler(logging.StreamHandler())
     logger.handlers[0].setFormatter(formatter)
 
 
