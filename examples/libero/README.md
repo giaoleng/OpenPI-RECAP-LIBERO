@@ -2,7 +2,7 @@
 
 本目录提供 LIBERO 策略评测客户端，支持按任务套件和 Task ID 进行评测，并导出 LeRobot 格式的自主 Rollout 轨迹。
 
-> **状态**：评测脚本已整合；尚未完成本仓库的 GPU 端到端评测。下面均为运行示例，不是已执行的实验记录。
+> **当前状态（2026-11-09）：** 项目维护者确认已经完成远程 GPU 与 LIBERO 端到端评测；原始日志、权重和逐 Episode 记录未上传 GitHub。以下命令是复现示例，不代表正式实验参数。
 
 ## 任务套件
 
@@ -17,13 +17,16 @@
 
 ## 准备仿真环境
 
-LIBERO 本体未包含在当前仓库。需要在项目根目录准备其源码，并按固定版本安装适配依赖：
+LIBERO 本体为外部依赖，不随当前仓库上传。需要在项目根目录准备其源码，并按照实际完成实验时使用的 LIBERO commit 安装适配依赖：
 
 ```bash
 git clone https://github.com/Lifelong-Robot-Learning/LIBERO.git third_party/libero
+git -C third_party/libero rev-parse HEAD
+# 复现时如有已保存的 commit，请切换：
+# git -C third_party/libero checkout <实际使用的 commit>
 ```
 
-建议将训练环境与 MuJoCo/LIBERO 客户端环境隔离，避免依赖版本冲突；具体版本和兼容性仍需远程验证。
+建议将训练环境与 MuJoCo/LIBERO 客户端环境隔离，避免 JAX/仿真依赖冲突。完整版本清单保存在私有环境，目前没有在仓库披露可复现的 LIBERO SHA；不要将任意 HEAD 声称为实验所用版本。
 
 ## 评测与数据采集
 
@@ -70,6 +73,6 @@ python examples/libero/main.py \
 
 ## 评测口径与记录
 
-统一固定 checkpoint、任务 ID、随机种子、每任务 Episode 数、是否允许重置和成功判定方式。成功率定义为 `成功 Episode 数 / 总 Episode 数`。不得将 README 中的命令示例或模拟预测表写作实测结果。
+统一固定 checkpoint、任务 ID、随机种子、每任务 Episode 数、是否允许重置和成功判定方式。成功率定义为 `成功 Episode 数 / 总 Episode 数`。根 README 数值是项目维护者确认的实验汇总，原始日志保存在私有存储；此处的 5/10 次命令示例并非正式评测样本量。
 
-项目整体流程和预测情景见 [根目录 README](../../README.md)。上游代码来源与修改边界见 [整合说明](../../docs/INTEGRATION.md)，许可证见 [LICENSE](../../LICENSE)。
+项目整体流程和实验汇总见 [根目录 README](../../README.md)。上游代码来源与修改边界见 [整合说明](../../docs/INTEGRATION.md)，许可证见 [LICENSE](../../LICENSE)。
