@@ -151,5 +151,30 @@ class TrainingBoundaries(unittest.TestCase):
         with self.assertRaises(ValueError): extract(Frame(episode_index=[3, 4]), 0)
 
 
+class LoggingInitialization(unittest.TestCase):
+    """不导入JAX/模型，隔离测试真实train.py中的日志初始化函数。"""
+
+    def test_init_logging_without_root_handlers(self):
+        fn = load_function('scripts/train.py', 'init_logging', {'logging': logging})
+        root = logging.Logger('train_init_no_handlers')
+        with patch.object(logging, 'getLogger', return_value=root):
+            fn()
+        self.assertEqual(len(root.handlers), 1)
+        self.assertIsInstance(root.handlers[0], logging.StreamHandler)
+        self.assertIsNotNone(root.handlers[0].formatter)
+        root.handlers[0].close()
+
+    def test_init_logging_reuses_existing_handler(self):
+        fn = load_function('scripts/train.py', 'init_logging', {'logging': logging})
+        root = logging.Logger('train_init_existing_handler')
+        handler = logging.NullHandler()
+        root.addHandler(handler)
+        with patch.object(logging, 'getLogger', return_value=root):
+            fn()
+        self.assertEqual(root.handlers, [handler])
+        self.assertIsNotNone(handler.formatter)
+        handler.close()
+
+
 if __name__ == '__main__':
     unittest.main()
