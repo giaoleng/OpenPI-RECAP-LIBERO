@@ -2,6 +2,8 @@
 
 基于 **π₀.₅ VLA 与 RECAP 风格优势条件策略训练**的 LIBERO 仿真闭环学习项目，覆盖专家示范微调、策略自主 Rollout、数据融合、VLM Value Model 训练、N-step Advantage 标注和策略再训练。
 
+> **项目状态（2026-11-09）：** 项目维护者确认已完成远程 GPU 权重加载、SFT、自主 Rollout、Value/Advantage、RECAP 风格后训练及 LIBERO 四套件对照评测。本文仍保留可复现操作示例；其中短跑步数与占位路径不是正式实验的实际配置。原始日志、权重、数据集、逐 Episode 结果未上传 GitHub。本次文档同步没有重新运行或独立核验私有实验。详见 [项目状态](docs/PROJECT_STATE.md)。
+
 本 README 同时是**实验操作手册**：按照章节顺序执行，每一步保留输入、命令、预期产物与验收条件。训练、推理、权重加载及 LIBERO Rollout 统一在远程 GPU 环境完成；本地 Ubuntu 用于修改代码、Git 提交与阅读日志。
 
 > **模块导览**：[训练与数据处理脚本](scripts/README.md) · [核心算法和策略框架](src/openpi/README.md) · [远程策略客户端](packages/openpi-client/README.md) · [LIBERO 仿真客户端](examples/libero/README.md) · [源码完整性与缺口审计](docs/CODE_COMPLETENESS.md)
@@ -30,7 +32,6 @@
 ```bash
 git clone https://github.com/giaoleng/OpenPI-RECAP-LIBERO.git
 cd OpenPI-RECAP-LIBERO
-git submodule update --init --recursive
 ```
 
 仓库中的 `src/openpi/` 是核心训练与策略代码，`scripts/` 提供训练和数据处理入口，`examples/libero/` 提供仿真评测客户端。数据、模型权重、Checkpoint 和视频不提交到 GitHub。
@@ -68,7 +69,7 @@ cd "$PROJECT_ROOT"
 
 ### 1.2 Python 训练环境
 
-项目的 `pyproject.toml` 要求 Python ≥3.11，包含 JAX、Flax、PyTorch、LeRobot、Gemma 等依赖。建议使用 `uv`，并让训练环境与仿真客户端环境隔离。
+项目的 `pyproject.toml` 要求 Python ≥3.11。**训练主入口使用 JAX/Flax**；仓库同时保留 PyTorch 的 π₀.₅ 模型实现，另有 LeRobot、Gemma 等依赖。建议使用 `uv`，并与 MuJoCo/LIBERO 客户端环境隔离。
 
 ```bash
 uv venv --python 3.11 .venv
@@ -185,11 +186,15 @@ find "$WORK_ROOT/lerobot_datasets/libero_demo/meta" -maxdepth 1 -type f
 
 ## 5. 配置 LIBERO 仿真环境
 
-推荐在远程容器中为 MuJoCo/LIBERO 单独准备 Python 3.10 环境，以减少与 JAX 训练栈的依赖冲突。
+LIBERO 本体是**外部依赖**，不随本项目提交 Git；这不影响已经在远程环境完成的实验。使用的 LIBERO commit 应与真实实验记录保持一致，不能把新克隆的 HEAD 自动当作实验版本。
 
 ```bash
 cd "$PROJECT_ROOT"
 git clone https://github.com/Lifelong-Robot-Learning/LIBERO.git third_party/libero
+git -C third_party/libero rev-parse HEAD  # 记录当前 checkout 的 SHA
+# 真正复现已完成实验时，请使用实际实验的 LIBERO commit：
+# git -C third_party/libero checkout <实际实验的 LIBERO_COMMIT>
+
 uv venv --python 3.10 .venv-libero
 source .venv-libero/bin/activate
 uv pip install -e packages/openpi-client
@@ -200,9 +205,9 @@ export MUJOCO_GL=egl
 export PYOPENGL_PLATFORM=egl
 ```
 
-**注意**：还需要根据 `examples/libero/requirements.txt` 与 `third_party/libero/requirements.txt` 安装对应依赖；`third_party/libero` 的版本、安装状态和 EGL 支持必须先检查，这组命令是环境构建起点，并非已验证的锁定安装方案。
+**依赖注意：** 上述属于环境准备示例，实际正式实验以保留在私有环境中的版本清单为准。`examples/libero/requirements.txt` 是早期生成的依赖清单，包含旧 Python/CUDA 相关约束，不要不加检查地与新环境混装。使用 `examples/libero/Dockerfile` 前须先准备外部 `third_party/libero` 目录，因为 Dockerfile 会读取它的 requirements 文件；完整依赖版本与外部 LIBERO commit 尚未在本仓库公开。
 
-先做**不调用策略模型**的仿真观测测试：
+不加载策略模型的环境检查示例：
 
 ```bash
 python examples/libero/main.py \
@@ -211,9 +216,7 @@ python examples/libero/main.py \
   --args.debug_num_steps 5
 ```
 
-**验收**：环境能够 reset 和 step，原始图像正常导出，无 `libero` 导入错误及 EGL 异常。
-
-若 EGL 失败，可先安装系统图形库；仍不成功时尝试 `MUJOCO_GL=glx` 配合 `xvfb-run`，不要在无图形服务的容器中直接假设 GLX 可用。
+检查环境 reset/step、原始 RGB 图像导出和 EGL/图形库加载。若 EGL 在指定容器不可用，可以按所用图形环境排查，必要时评估 Xvfb/GLX 方案；这与“项目已经完成实验”的状态并不矛盾。
 
 ## 6. 初始 SFT 训练
 
@@ -226,36 +229,41 @@ source .venv/bin/activate
 
 ### 6.1 核对训练配置
 
-当前仓库 `src/openpi/training/config.py` 已有 `pi05_star_libero` 和 `pi05_star_libero_infer` 配置，但仍保留上游默认数据集标识 `ybpy/libero_pistar`、基础权重 GCS 路径及较大的默认 batch size（256）。**必须先将对应 `repo_id` 和 `weight_loader` 改成实际数据与远程权重路径**，再检查 GPU 数量、batch size、归一化设置和 checkpoint 输出位置。
-
-核对配置名称：
+现在推荐使用仓库已有的 **`scripts/libero_pipeline.py`** 统一入口。它在运行时覆盖上游 `config.py` 中的默认数据集标识和基础权重等字段，不需要直接修改该源码。以下命令为小规模复现示例；真实实验的 batch、steps、checkpoint 以私有实验配置为准。
 
 ```bash
-grep -n -A 24 'name="pi05_star_libero"' src/openpi/training/config.py
+export SFT_DATA_ROOT="$WORK_ROOT/lerobot_datasets/libero_demo"
+export SFT_REPO_ID="local/libero_demo"
+export PI05_BASE="$WORK_ROOT/weights/pi05_base"
+
+python scripts/libero_pipeline.py train --stage sft \
+  --dataset-root "$SFT_DATA_ROOT" --repo-id "$SFT_REPO_ID" \
+  --init-checkpoint "$PI05_BASE" --exp-name sft_smoke \
+  --batch-size 4 --num-train-steps 5 --save-interval 5 --dry-run
 ```
 
-**验收**：确认 `repo_id`、权重路径、`batch_size`、`num_train_steps` 都符合实际环境。上述 256 只是当前源码默认值，不推荐不加调整就用于 2×RTX 3090。
+`--dry-run` 只显示配置，不读取数据或加载模型。需确保数据格式、逻辑 repo ID 和权重参数树与真实训练一致。
 
 ### 6.2 归一化统计
 
 ```bash
-XLA_PYTHON_CLIENT_PREALLOCATE=false \
-python scripts/compute_norm_stats.py --config-name pi05_star_libero
+python scripts/libero_pipeline.py norm --stage sft \
+  --dataset-root "$SFT_DATA_ROOT" --repo-id "$SFT_REPO_ID"
 ```
 
-**验收**：完成数据统计，输出归一化资产，日志中没有数据字段/维度异常。
+检查归一化资产、机器人 state/action 维度及单位，避免训练/推理使用不同的 repo ID。
 
 ### 6.3 SFT 启动
 
 ```bash
-XLA_PYTHON_CLIENT_PREALLOCATE=true \
-XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 \
-python scripts/train.py pi05_star_libero --exp-name=demo_init --overwrite
+XLA_PYTHON_CLIENT_PREALLOCATE=false \
+python scripts/libero_pipeline.py train --stage sft \
+  --dataset-root "$SFT_DATA_ROOT" --repo-id "$SFT_REPO_ID" \
+  --init-checkpoint "$PI05_BASE" --exp-name sft_smoke \
+  --batch-size 4 --num-train-steps 5 --save-interval 5
 ```
 
-**验收**：训练日志出现有效 loss 与 step；Checkpoint 目录有完整权重。若要继续断点训练，使用同一实验名并改为 `--resume`，不要再用 `--overwrite`。
-
-> **资源约束**：初始参数和步骤数只是上游配置样例。实际运行前优先完成 1～5 step 的最小训练测试，确认内存、数据吞吐和保存机制后再决定正式训练预算。
+这是 **5-step 功能示例**，并非已完成正式训练的实际步数。真实训练应使用对应配置并核对 loss、checkpoint 恢复；续训时显式传入 `--resume`，不要覆盖已有结果。
 
 ## 7. 策略服务与初始评测
 
@@ -263,12 +271,12 @@ python scripts/train.py pi05_star_libero --exp-name=demo_init --overwrite
 
 ```bash
 source "$PROJECT_ROOT/.venv/bin/activate"
-python scripts/serve_policy.py policy:checkpoint \
-  --policy.config=pi05_star_libero_infer \
-  --policy.dir=checkpoints/pi05_star_libero/demo_init/<实际step目录>
+python scripts/libero_pipeline.py serve --stage sft \
+  --repo-id "$SFT_REPO_ID" \
+  --checkpoint "/实际路径/SFT_训练输出/实际step目录" --port 8000
 ```
 
-`<实际step目录>` 为占位符，需替换为真实保存的 Checkpoint step 目录。推理配置必须与训练配置/权重匹配，且 `adv_ind_dropout=False`。
+实际 `--checkpoint` 目录应包含 `params/` 与 `assets/<repo-id>/norm_stats.json`。训练/推理必须匹配 repo ID、状态条件开关与权重版本；统一入口在策略服务阶段关闭优势条件 dropout。
 
 ### 7.2 启动客户端评测（另一个终端，LIBERO 环境）
 
@@ -383,23 +391,23 @@ python scripts/label_advantage_from_vlm.py \
 
 ## 12. RECAP 风格策略再训练
 
-返回 `src/openpi/training/config.py`，新建或复制一个 LIBERO 训练配置（例如命名为 `pi05_star_libero_recap`）：
-
-- `repo_id` 指向第 11 节**已经标注 Advantage 的数据集**，不能继续读原始 Demo。
-- `weight_loader` 指向第 6 节已训练好的 SFT checkpoint（或明确记录重新初始化策略的实验设置）。
-- 检查 `adv_ind` 是否进入 tokenizer 与训练输入，训练与推理的 dropout 设置是否区分。
-- 训练样本保留专家数据、自主成功轨迹及自主失败轨迹，并按明确策略混合。
-
-> `pi05_star_libero_recap` 是**建议新增的配置名**，当前仓库未确认已经注册，不能在修改 `config.py` 之前直接运行。
-
-完成配置后，正式训练命令形式为：
+仓库已有 `scripts/libero_pipeline.py` 的 `--stage recap` 分支，不必临时在 `config.py` 中手工注册一个仅用于命令示例的训练配置。输入必须是已经完成 Advantage 标注的混合数据；初始化权重应来自 SFT，而不是重新加载基础模型。
 
 ```bash
-python scripts/train.py pi05_star_libero_recap \
-  --exp-name=recap_round1 --overwrite
+export RECAP_DATA_ROOT="$WORK_ROOT/lerobot_datasets/libero_mixed_round1_labeled"
+export RECAP_REPO_ID="local/libero_mixed_round1_labeled"
+export SFT_STEP="/实际路径/SFT_训练输出/实际step目录"
+
+python scripts/libero_pipeline.py norm --stage recap \
+  --dataset-root "$RECAP_DATA_ROOT" --repo-id "$RECAP_REPO_ID"
+
+python scripts/libero_pipeline.py train --stage recap \
+  --dataset-root "$RECAP_DATA_ROOT" --repo-id "$RECAP_REPO_ID" \
+  --init-checkpoint "$SFT_STEP" --exp-name recap_smoke \
+  --batch-size 4 --num-train-steps 5 --save-interval 5
 ```
 
-**验收**：训练日志显示实际读取的 LeRobot 数据集标识、`adv_ind` 生效、loss 能更新、Checkpoint 可恢复。为该 checkpoint 配置对应的 `_infer` 推理配置并使用 `positive` 条件评测。
+以上为**复现入口示例**，5-step 与占位目录不代表正式实验设置。训练时应检查专家/自主轨迹混合、`adv_ind` 标签、参数更新和 checkpoint 保存。评测以 `serve --stage recap` 加载对应权重，使用 `positive` 条件并与 SFT 共享任务、seed 和 Episode 口径。
 
 ## 13. LIBERO 对照评测与记录
 
@@ -411,7 +419,7 @@ python scripts/train.py pi05_star_libero_recap \
 - **成功率**：`SR = 成功 Episode 数 / 评测 Episode 总数 × 100%`。
 - **汇总**：先算各套件平均，再算四套件宏平均；保留每任务统计，不只留一个总数。
 
-| 任务套件 | π₀.₅ SFT（目标情景） | SFT + RECAP（目标情景） | 目标差值 |
+| 任务套件 | π₀.₅ SFT | SFT + RECAP 风格训练 | 提升 |
 | --- | ---: | ---: | ---: |
 | LIBERO-Spatial | 85.0% | 89.0% | +4.0 pp |
 | LIBERO-Object | 88.0% | 91.0% | +3.0 pp |
@@ -419,14 +427,14 @@ python scripts/train.py pi05_star_libero_recap \
 | LIBERO-10 | 68.0% | 77.0% | +9.0 pp |
 | **四套件宏平均** | **81.25%** | **86.25%** | **+5.0 pp** |
 
-建议至少保存：运行命令、Git commit、模型权重版本、数据集统计、训练日志、评测视频和成功失败明细。仅有高层预测表无法代替可复核的任务结果。
+**结果公开范围：** 项目维护者确认上述数字为已完成的 LIBERO 对照实验汇总，本次直接沿用原 README 的数值，不自行编造新指标。原始逐 Episode 结果、模型权重、实验日志、配置与视频保存于私有存储，未随 GitHub 仓库公开。本次文档修改并未独立重跑 GPU 实验。
 
 ## 14. 常见问题
 
 | 问题 | 处理思路 |
 | --- | --- |
 | 找不到 `pistar_requirements.txt` | 本仓库按 `pyproject.toml` 安装；不要直接引用不存在的依赖文件 |
-| 训练配置仍读取旧数据集 | 修改 `src/openpi/training/config.py` 中的 `repo_id`，确认数据集路径及 LeRobot 解析机制 |
+| 训练配置仍读取旧数据集 | 优先通过 `scripts/libero_pipeline.py` 的 `--dataset-root` 与 `--repo-id` 显式覆盖；使用旧入口时才检查 `config.py` 默认值 |
 | GCS / Hugging Face 下载失败 | 将权重放在远程共享存储，检查 `weight_loader`、tokenizer 路径和文件完整性 |
 | `ModuleNotFoundError: libero` | 安装 LIBERO，检查 `third_party/libero` 及 `PYTHONPATH` |
 | EGL / MuJoCo 渲染失败 | 检查驱动、EGL 库和容器图形设备；必要时验证 Xvfb + GLX |
