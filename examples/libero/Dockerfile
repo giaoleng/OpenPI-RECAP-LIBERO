@@ -20,6 +20,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 ENV UV_LINK_MODE=copy
 ENV UV_PROJECT_ENVIRONMENT=/.venv
+ENV VIRTUAL_ENV=/.venv
+ENV PATH="/.venv/bin:$PATH"
 RUN uv venv --python 3.10 "$UV_PROJECT_ENVIRONMENT"
 
 # LIBERO is intentionally NOT tracked in this Git repo; clone it to third_party/libero
