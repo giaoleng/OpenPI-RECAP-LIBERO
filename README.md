@@ -205,7 +205,15 @@ export MUJOCO_GL=egl
 export PYOPENGL_PLATFORM=egl
 ```
 
-**依赖注意：** 上述属于环境准备示例，实际正式实验以保留在私有环境中的版本清单为准。`examples/libero/requirements.txt` 是早期生成的依赖清单，包含旧 Python/CUDA 相关约束，不要不加检查地与新环境混装。使用 `examples/libero/Dockerfile` 前须先准备外部 `third_party/libero` 目录，因为 Dockerfile 会读取它的 requirements 文件；完整依赖版本与外部 LIBERO commit 尚未在本仓库公开。
+**依赖注意：** 上述 Python 3.10 手动安装方案是本项目的首选参考；正式实验的精确版本以私有环境记录为准。新增的 `examples/libero/Dockerfile` 采用 Python 3.10 和同一 LeRobot 源码版本，作为容器化准备方案；旧 Python 3.8 / CUDA 11.3 方案保留为 `examples/libero/Dockerfile.legacy`，**不再作为推荐安装方式**。`examples/libero/requirements.txt` 是旧环境的依赖清单，请勿混入 Python 3.10 环境。
+
+若选择 Docker，必须先在项目根目录克隆并检出实际实验对应的 `third_party/libero` 版本（仓库不跟踪该目录），再从仓库根目录执行：
+
+```bash
+docker build -f examples/libero/Dockerfile -t openpi-libero-py310 .
+```
+
+Docker 中 LeRobot 会解析其声明的依赖，而手动安装示例使用 `--no-deps`（适用于依赖已齐全的环境）；两种方式都不应被误认为是对私有正式实验环境的完整锁定复现。本次只修改构建脚本，**未执行 Docker build 或 GPU 运行**。完整依赖版本与外部 LIBERO commit 尚未在本仓库公开。
 
 不加载策略模型的环境检查示例：
 
