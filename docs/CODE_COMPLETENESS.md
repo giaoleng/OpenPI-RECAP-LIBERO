@@ -1,4 +1,6 @@
-# 源码完整性审计与补齐计划
+# 源码完整性审计与补齐计划（历史阶段记录）
+
+> **状态说明（2026-11-09）：** 本报告统计“补齐前”的文件与待验证事项，不是最新实验进度。项目维护者确认已完成 SFT、Rollout、Value/Advantage、RECAP 与 LIBERO 对照评测。后文 P0–P4 指的是当时的验收计划，最新完成状态见 [PROJECT_STATE.md](PROJECT_STATE.md)。本次未独立重跑私有实验。
 
 本报告根据 Git 文件树对比，目标是保证 **LIBERO 仿真 SFT → Rollout → Value → Advantage → RECAP** 的可运行性，而非合并两份上游仓库的全部历史文件。
 
