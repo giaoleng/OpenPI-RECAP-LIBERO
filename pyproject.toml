@@ -42,7 +42,7 @@ dependencies = [
 
 
 [project.urls]
-Repository = "https://github.com/giaoleng/OpenPI-RECAP-LIBERO"
+Repository = "https://github.com/giaoleng/openpi-recap-sim"
 
 [dependency-groups]
 dev = [
