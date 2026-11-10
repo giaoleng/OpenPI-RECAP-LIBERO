@@ -26,3 +26,6 @@ wandb/
 *.key
 .ipynb_checkpoints/
 .DS_Store
+
+# External LIBERO checkout is installed separately; do not commit it.
+third_party/libero/
