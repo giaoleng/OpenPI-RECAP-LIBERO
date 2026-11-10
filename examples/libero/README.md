@@ -28,6 +28,10 @@ git -C third_party/libero rev-parse HEAD
 
 建议将训练环境与 MuJoCo/LIBERO 客户端环境隔离，避免 JAX/仿真依赖冲突。完整版本清单保存在私有环境，目前没有在仓库披露可复现的 LIBERO SHA；不要将任意 HEAD 声称为实验所用版本。
 
+## Docker 环境版本说明
+
+根目录 [README 第 5 节](../../README.md#5-配置-libero-仿真环境) 是当前推荐安装说明，采用 Python 3.10。配套的 `Dockerfile` 也已调整为 Python 3.10，原 Python 3.8 / CUDA 11.3 Dockerfile 另存为 `Dockerfile.legacy` 供历史兼容。旧 `requirements.txt` 不能直接用于 Python 3.10 方案。Docker 构建之前必须准备仓库外安装的 `third_party/libero`。新增 Dockerfile 尚未在此轮执行构建或仿真测试。
+
 ## 评测与数据采集
 
 先启动匹配所用 checkpoint 的策略服务，再运行 LIBERO 客户端。示例：
