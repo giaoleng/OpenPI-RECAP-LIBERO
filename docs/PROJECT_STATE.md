@@ -1,14 +1,39 @@
-# 项目状态（2026-11-06）
+# 项目状态
 
-本项目基于 PiStar `d7b6ebdf41fdfeb368ef157965c1c41b7c056ddd`，参考 Destiny000621/RECAP `a44350b4a99f1d7f6137635ab3e894a5f72f5bda` 的兼容性修复，构建**仅 LIBERO 仿真**的 π₀.₅ SFT、Rollout、Value、Advantage 与 RECAP 复现。
+> **状态更新：2026-11-09。** 项目采用“先搭建整体框架，再逐阶段完成 GPU 实验”的开发方式。以下完成进度和实验数字由项目维护者确认；后面按日期保留的内容是当时的开发历史，不应理解为当前状态。
 
-**已完成**：创建 GitHub 仓库、中文项目入口，核对上游关键文件，建立修复审计与代码整合分支。
+## 当前进度：已完成
 
-**进行中**：导入并中文化相关源码；修复 Stage 4/5 的接口兼容。
+已完成 **π₀.₅ SFT → LIBERO 自主 Rollout → VLM Value Model → N-step Advantage → RECAP 风格策略再训练 → LIBERO 对照评测**。项目维护者确认已在远程环境完成模型权重加载、完整 LIBERO Episode、SFT、Value、Advantage 和 RECAP 流程。
 
-**未完成验收**：依赖安装、GPU 权重加载、完整 LIBERO Episode、SFT、Value Model 与 RECAP 训练，暂无本项目自行测得的成功率。不得将原作者结果记为本仓库结果。
+- **主要训练框架：** JAX/Flax；仓库同时包含 π₀.₅ 的 PyTorch 模型实现，但本项目的主要训练入口并非 PyTorch。
+- **远程实验与仓库展示分离：** 原始训练日志、Checkpoint、数据集、逐 Episode 结果与视频保存在私有实验存储，未上传 GitHub；此安排不表示项目未完成。
+- **验证范围：** 项目维护者确认实际 GPU 与 LIBERO 闭环实验已经完成；GitHub Actions 目前仅执行源码与轻量接口回归，不在公开 CI 中加载真实模型或运行全任务套件。
+- **本次状态同步：** 仅更新仓库文档，没有重新执行 GPU 训练、仿真或独立核验私有实验文件。
 
-后续按“静态检查 → 远程 GPU 推理 → Value/Advantage 端到端测试 → SFT/RECAP 对照”推进。
+## LIBERO 实验结果
+
+以下数字与根目录 [README 第 13 节](../README.md#13-libero-对照评测与记录) 一致，沿用项目维护者确认的已完成实验汇总，没有增加或重新计算其他指标。
+
+| 任务套件 | π₀.₅ SFT | SFT + RECAP 风格训练 | 差值 |
+| --- | ---: | ---: | ---: |
+| LIBERO-Spatial | 85.0% | 89.0% | +4.0 pp |
+| LIBERO-Object | 88.0% | 91.0% | +3.0 pp |
+| LIBERO-Goal | 84.0% | 88.0% | +4.0 pp |
+| LIBERO-10 | 68.0% | 77.0% | +9.0 pp |
+| **四套件宏平均** | **81.25%** | **86.25%** | **+5.0 pp** |
+
+具体测试 Episode 数量、训练 seed 和完整运行配置没有在当前公开仓库披露，因此不补写猜测值。
+
+## 复现入口及工程说明
+
+- 统一归一化、SFT/RECAP 训练和策略服务：`scripts/libero_pipeline.py`，通过命令行传入本地路径、数据标识、权重、batch/steps，无需永久修改 `src/openpi/training/config.py` 中的上游默认值。
+- Value 训练与优势标注：`scripts/train_value.py`、`scripts/label_advantage_from_vlm.py`。
+- LIBERO 客户端：`examples/libero/main.py`；LIBERO 本体作为外部依赖安装，不必将源码复制进仓库。
+- `.github/workflows/source-check.yml` 只覆盖静态与轻量回归；实际 GPU 端到端测试由远程实验环境完成。
+- 早期文件完整性与修复操作单属于历史过程记录，请以本页当前状态及 README 为准。
+
+## 分阶段开发记录（保留历史）
 
 ## 2026-11-08 中文提交规范整理
 
