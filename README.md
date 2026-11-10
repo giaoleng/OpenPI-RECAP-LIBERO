@@ -39,7 +39,7 @@ cd openpi-recap-sim
 建议在**远程 GPU 容器**中使用下列目录，路径可依平台实际挂载位置调整：
 
 ```text
-/workspace/OpenPI-RECAP-LIBERO/           # Git 仓库
+/workspace/openpi-recap-sim/           # Git 仓库
 /workspace/recap_data/
 ├── raw_libero_rlds/                  # 原始专家示范
 ├── lerobot_datasets/
@@ -59,7 +59,7 @@ cd openpi-recap-sim
 设置工作路径（**在远程容器中运行**）：
 
 ```bash
-export PROJECT_ROOT=/workspace/OpenPI-RECAP-LIBERO
+export PROJECT_ROOT=/workspace/openpi-recap-sim
 export WORK_ROOT=/workspace/recap_data
 mkdir -p "$WORK_ROOT"/{raw_libero_rlds,lerobot_datasets,weights,checkpoints,outputs/eval,outputs/logs}
 cd "$PROJECT_ROOT"
